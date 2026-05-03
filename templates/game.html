@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dungeon Crawler</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #f0c040;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px #000;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #dungeon-grid {
+            display: grid;
+            background: #1a1a2e;
+            border: 3px solid #333;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .tile {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            position: relative;
+        }
+
+        .tile-wall {
+            background: #2a2a3a;
+            color: #3a3a4a;
+        }
+
+        .tile-floor {
+            background: #1a1a1a;
+            color: #555;
+        }
+
+        .tile-door {
+            background: #3a2a1a;
+            color: #a08040;
+        }
+
+        .tile-stairs_down {
+            background: #1a1a2a;
+            color: #8080ff;
+        }
+
+        .tile-unexplored {
+            background: #0a0a0a;
+            color: #0a0a0a;
+        }
+
+        .tile-hidden {
+            background: #0a0a0a;
+            color: #0a0a0a;
+        }
+
+        .player {
+            color: #40ff40 !important;
+            text-shadow: 0 0 8px #40ff40;
+            z-index: 10;
+        }
+
+        .entity {
+            color: #ff4040 !important;
+            text-shadow: 0 0 6px #ff4040;
+        }
+
+        .item-on-ground {
+            color: #ffd700 !important;
+            text-shadow: 0 0 6px #ffd700;
+        }
+
+        #sidebar {
+            background: #1a1a2e;
+            border: 2px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            min-width: 220px;
+            max-width: 280px;
+        }
+
+        .stat-block {
+            margin-bottom: 15px;
+        }
+
+        .stat-block h3 {
+            color: #f0c040;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+        }
+
+        .stat-label {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .hp-bar {
+            width: 100%;
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4040, #40ff40);
+            transition: width 0.3s;
+        }
+
+        #message-log {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            min-height: 120px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .log-entry {
+            margin: 3px 0;
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .log-entry.combat {
+            color: #ff6060;
+        }
+
+        .log-entry.item {
+            color: #ffd700;
+        }
+
+        .log-entry.success {
+            color: #60ff60;
+        }
+
+        #controls {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .control-btn {
+            background: #2a2a3a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 8px 16px;
+            margin: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        .control-btn:hover {
+            background: #3a3a5a;
+        }
+
+        .control-btn:active {
+            background: #4a4a6a;
+        }
+
+        #inventory-list {
+            list-style: none;
+            font-size: 13px;
+        }
+
+        #inventory-list li {
+            padding: 2px 0;
+            color: #ccc;
+        }
+
+        #inventory-list li::before {
+            content: "- ";
+            color: #666;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            padding: 10px;
+            background: #111;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .instructions kbd {
+            background: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #555;
+            color: #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dungeon Crawler</h1>
+
+    <div id="game-container">
+        <div id="dungeon-grid"></div>
+
+        <div id="sidebar">
+            <div class="stat-block">
+                <h3>Character</h3>
+                <div class="stat-row">
+                    <span class="stat-label">HP</span>
+                    <span class="stat-value" id="hp-text">30/30</span>
+                </div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="hp-bar" style="width: 100%"></div>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Level</span>
+                    <span class="stat-value" id="level-text">1</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">XP</span>
+                    <span class="stat-value" id="xp-text">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Attack</span>
+                    <span class="stat-value" id="atk-text">3</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Defense</span>
+                    <span class="stat-value" id="def-text">1</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Gold</span>
+                    <span class="stat-value" id="gold-text">0</span>
+                </div>
+            </div>
+
+            <div class="stat-block">
+                <h3>Inventory</h3>
+                <ul id="inventory-list">
+                    <li>Empty</li>
+                </ul>
+            </div>
+
+            <div id="controls">
+                <button class="control-btn" onclick="sendAction('wait')">Wait (.)</button>
+                <button class="control-btn" onclick="sendAction('descend')">Descend (&gt;)</button>
+            </div>
+
+            <div class="instructions">
+                <strong>Controls:</strong><br>
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>&uarr;</kbd><kbd>&larr;</kbd><kbd>&darr;</kbd><kbd>&rarr;</kbd> to move<br>
+                Bump enemies to attack<br>
+                Walk over items to pick up
+            </div>
+        </div>
+    </div>
+
+    <div id="message-log"></div>
+
+    <script>
+        let gameState = {
+            map: [],
+            entities: [],
+            items: [],
+            player: {},
+            mapSize: { width: 20, height: 20 },
+        };
+
+        const TILE_SYMBOLS = {
+            wall: '#',
+            floor: '.',
+            door: '+',
+            stairs_down: '>',
+        };
+
+        const ITEM_SYMBOLS = {
+            weapon: '/',
+            armor: '[',
+            potion: '!',
+            gold: '$',
+            key: '?',
+        };
+
+        async function fetchMap() {
+            try {
+                const response = await fetch('/api/map');
+                const data = await response.json();
+                gameState.map = data.map;
+                gameState.entities = data.entities;
+                gameState.items = data.items;
+                gameState.player = data.player;
+                gameState.mapSize = data.map_size;
+
+                renderGrid();
+                updateStats();
+                updateInventory();
+
+                if (data.message) {
+                    addLog(data.message, 'success');
+                }
+            } catch (err) {
+                console.error('Failed to fetch map:', err);
+            }
+        }
+
+        async function sendAction(action) {
+            try {
+                const response = await fetch('/api/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action }),
+                });
+                const data = await response.json();
+                handleActionResult(data);
+            } catch (err) {
+                console.error('Failed to send action:', err);
+                addLog('Connection error!', 'combat');
+            }
+        }
+
+        function handleActionResult(data) {
+            if (data.message) {
+                const type = data.status === 'combat' ? 'combat' :
+                             data.status === 'descended' ? 'success' :
+                             data.status === 'dead' ? 'combat' : 'success';
+                addLog(data.message, type);
+            }
+
+            if (data.events) {
+                data.events.forEach(event => addLog(event, 'item'));
+            }
+
+            if (data.player) {
+                Object.assign(gameState.player, data.player);
+                updateStats();
+            }
+
+            if (data.status === 'dead') {
+                document.getElementById('dungeon-grid').style.opacity = '0.3';
+                return;
+            }
+
+            fetchMap();
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('dungeon-grid');
+            const { width, height } = gameState.mapSize;
+
+            grid.style.gridTemplateColumns = `repeat(${width}, 28px)`;
+            grid.style.gridTemplateRows = `repeat(${height}, 28px)`;
+            grid.innerHTML = '';
+
+            const tileMap = {};
+            gameState.map.forEach(tile => {
+                tileMap[`${tile.x},${tile.y}`] = tile;
+            });
+
+            const entityMap = {};
+            gameState.entities.forEach(e => {
+                entityMap[`${e.x},${e.y}`] = e;
+            });
+
+            const itemMap = {};
+            gameState.items.forEach(i => {
+                itemMap[`${i.x},${i.y}`] = i;
+            });
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const key = `${x},${y}`;
+                    const tile = tileMap[key];
+                    const div = document.createElement('div');
+                    div.className = 'tile';
+
+                    if (!tile) {
+                        div.classList.add('tile-unexplored');
+                        div.textContent = ' ';
+                    } else if (!tile.visible) {
+                        div.classList.add('tile-hidden');
+                        div.textContent = TILE_SYMBOLS[tile.type] || ' ';
+                    } else {
+                        div.classList.add(`tile-${tile.type}`);
+
+                        if (x === gameState.player.x && y === gameState.player.y) {
+                            div.classList.add('player');
+                            div.textContent = '@';
+                        } else if (entityMap[key]) {
+                            div.classList.add('entity');
+                            div.textContent = entityMap[key].symbol;
+                            div.title = `${entityMap[key].name} (${entityMap[key].hp}/${entityMap[key].max_hp}hp)`;
+                        } else if (itemMap[key]) {
+                            div.classList.add('item-on-ground');
+                            div.textContent = ITEM_SYMBOLS[itemMap[key].type] || '*';
+                            div.title = itemMap[key].name;
+                        } else {
+                            div.textContent = TILE_SYMBOLS[tile.type] || ' ';
+                        }
+                    }
+
+                    grid.appendChild(div);
+                }
+            }
+        }
+
+        function updateStats() {
+            const p = gameState.player;
+            document.getElementById('hp-text').textContent = `${p.hp}/${p.max_hp}`;
+            document.getElementById('hp-bar').style.width = `${(p.hp / p.max_hp) * 100}%`;
+            document.getElementById('level-text').textContent = p.level;
+            document.getElementById('xp-text').textContent = p.xp;
+            document.getElementById('atk-text').textContent = p.attack;
+            document.getElementById('def-text').textContent = p.defense;
+            document.getElementById('gold-text').textContent = p.gold;
+        }
+
+        function updateInventory() {
+            const list = document.getElementById('inventory-list');
+            const inv = gameState.player.inventory || [];
+
+            if (inv.length === 0) {
+                list.innerHTML = '<li>Empty</li>';
+            } else {
+                list.innerHTML = inv.map(item => `<li>${item}</li>`).join('');
+            }
+        }
+
+        function addLog(message, type = '') {
+            const log = document.getElementById('message-log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = message;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+
+            while (log.children.length > 50) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const keyMap = {
+                'w': 'north', 'arrowup': 'north',
+                's': 'south', 'arrowdown': 'south',
+                'd': 'east', 'arrowright': 'east',
+                'a': 'west', 'arrowleft': 'west',
+                '.': 'wait',
+                '>': 'descend',
+            };
+
+            const action = keyMap[e.key.toLowerCase()];
+            if (action) {
+                e.preventDefault();
+                sendAction(action);
+            }
+        });
+
+        fetchMap();
+    </script>
+</body>
+</html>
